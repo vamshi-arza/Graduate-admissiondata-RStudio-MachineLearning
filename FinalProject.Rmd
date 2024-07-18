@@ -1,0 +1,662 @@
+---
+title: "Graduate Admission"
+output:
+  html_document:
+    df_print: paged
+---
+
+# Data reading and cleaning.
+
+```{r}
+grad_set <- read.csv(file = "C:/Users/arzav/Downloads/Admission_Predict_Ver1.1.csv", header = TRUE, stringsAsFactors=FALSE) 
+grad_set
+```
+
+
+
+```{r}
+str(grad_set)
+
+```
+The dataset consists of 500 observations and 9 variables. 
+
+It has 9 numerical variables. 
+
+```{r}
+summary(grad_set)
+```
+University ranking ranges from 0-5
+LOR(letter of recommendation) ranges from 0-5
+SOP(statement of purpose) ranges from 0-5
+Research is either O or 1 this indicates whether the candidate has research experience or not in undergrad.
+
+```{r}
+colSums(is.na(grad_set))
+```
+As, The 'Serial no.' is not necessary for the models.So, we will remove this column.
+
+
+```{r}
+grad_set$Serial.No.<-NULL 
+
+```
+
+
+```{r}
+str(grad_set) 
+```
+
+
+```{r}
+colSums(is.na(grad_set)) 
+```
+
+
+```{r}
+grad_set$Research<-as.factor(grad_set$Research) 
+```
+
+Research is converted into factor variable
+
+```{r}
+table(grad_set$Research) 
+
+```
+
+
+```{r}
+str(grad_set) 
+```
+# Exploratory Data analysis.
+
+```{r}
+library(ggplot2)
+ggplot(grad_set, aes(x=Chance.of.Admit, fill=after_stat(count)))+geom_histogram()+ggtitle("Chance.of.Admit")+ylab("frequency")+xlab("Chance.of.Admit")+theme(plot.title=element_text(hjust=0.5))+theme_minimal() 
+```
+The tallest bar from the histogram reaches a frequency of as high as 40. There are totally two bars of same height, where one bar lies in the range of 0.6 and 0.7, where as the other bar is at the range of 0.7 and 0.8.
+
+
+```{r}
+corr <- cor(grad_set[,c("GRE.Score","TOEFL.Score","University.Rating","SOP","LOR","CGPA","Chance.of.Admit")])
+corr 
+
+```
+
+
+```{r}
+library(ggcorrplot)
+ggcorrplot(corr, hc.order = TRUE, type = "lower", lab = TRUE, lab_size = 3, method="circle", colors = c("blue", "white", "red"), outline.color = "gray", show.legend = TRUE, show.diag = FALSE, title="College variables") 
+```
+
+
+```{r}
+cor.test(grad_set$Chance.of.Admit, grad_set$GRE.Score)
+cor.test(grad_set$Chance.of.Admit, grad_set$TOEFL.Score)
+cor.test(grad_set$Chance.of.Admit, grad_set$University.Rating)
+cor.test(grad_set$Chance.of.Admit, grad_set$SOP)
+cor.test(grad_set$Chance.of.Admit, grad_set$LOR)
+cor.test(grad_set$Chance.of.Admit, grad_set$CGPA) 
+```
+From the above plots and tests we can see that all the numeric variables are extremely closely associated with the target variable
+
+```{r}
+Plot1 = ggplot(grad_set, aes(x = Chance.of.Admit, y = Research)) + geom_boxplot() 
+Plot1 
+
+```
+
+
+
+```{r}
+t.test(Chance.of.Admit~Research,data=grad_set) 
+```
+From the above plots and test we can conclude that Research is closely associated with Chance.of.Admit
+
+```{r}
+ggplot(grad_set, aes(Chance.of.Admit, color=factor(Research)))+
+  geom_density(alpha=0.5)+ggtitle("Chance of admit vs Research Distribution") 
+```
+
+
+# Splitting and Training the data.
+
+Before we can develop the model, we must divide the data into train and test datasets. We will use the train dataset to develop a linear regression model, and the test dataset as a comparison to check if the model becomes overfit or cannot predict fresh data. We will utilize 80% of the data as training data and the remaining 20% as testing data.
+
+```{r}
+set.seed(1)
+
+library(lattice)
+library(caret)
+train.index=createDataPartition(grad_set$Chance.of.Admit, p=0.8, list = FALSE)
+grad_train<-grad_set[train.index, ]
+grad_test <-grad_set[-train.index, ]
+grad_train_labels = grad_train[train.index, 8]
+grad_test_labels = grad_test[-train.index,8] 
+
+```
+
+
+```{r}
+grad_train 
+grad_test
+```
+
+# Multiple Linear Regression.
+
+```{r}
+set.seed(1)
+
+train.control =trainControl(method = "cv", number = 5)
+linear_model<-train(Chance.of.Admit~.,data = grad_train, method = 
+"lm",trControl = train.control)
+linear_model
+
+```
+
+
+```{r}
+summary(linear_model) 
+```
+Linear regression is a model with a great interpretability, thus we'll interpret this simple linear regression model immediately. - Intercept-based:
+
+Based on the coefficient or slope: When CGPA increases by one value, the Chance.of.Admit increases by around 0.12.
+
+According to the P-value, CGPA is a significant predictor with a linear impact.
+
+Based on R-squared values of 0.8244, the predictor chosen is enough to explain the target variable.
+
+```{r}
+grad_pred<-predict(linear_model, grad_test) 
+grad_pred
+
+```
+
+
+```{r}
+RMSE(grad_pred,grad_test$Chance.of.Admit) 
+```
+
+# Backward selection method
+
+We can use Step-wise Regression to finding a combination of predictors that produces the best model based on lowest RMSE value. There are 3 types of Step-wise Regression such as Forward, Backward, and both. We will use LeapBackward. We named it step_model.
+
+```{r}
+train.control2 = trainControl(method = "cv", number = 10) 
+step_model <- train(Chance.of.Admit~., data = grad_train,method =
+"leapBackward",trControl = train.control2, tuneGrid=data.frame(nvmax=1:7))
+step_model
+```
+
+
+
+```{r}
+summary(step_model$finalModel)
+ 
+```
+
+
+```{r}
+stepwise_grad_pred<-predict(step_model,grad_test)
+stepwise_grad_pred 
+
+```
+
+
+```{r}
+RMSE(stepwise_grad_pred,grad_test$Chance.of.Admit) 
+```
+
+
+# Regression Trees
+
+```{r}
+library(rpart) 
+reg_tree_data <- rpart(Chance.of.Admit ~ ., data = grad_train)
+reg_tree_data
+
+```
+
+
+```{r}
+best<-reg_tree_data$cptable[which.min(reg_tree_data$cptable[,"xerror"]),"CP"] 
+```
+
+
+```{r}
+pruned_tree<-prune(reg_tree_data,cp=best) 
+```
+
+
+```{r}
+library(rpart.plot)
+prp(pruned_tree) 
+```
+
+
+```{r}
+regtree_pred<-predict(reg_tree_data,grad_test)
+regtree_pred 
+
+```
+
+
+```{r}
+RMSE(regtree_pred,grad_test$Chance.of.Admit) 
+
+```
+
+
+
+```{r}
+set.seed(1)
+lasso <- train(
+Chance.of.Admit ~., data = grad_train, method = "glmnet",
+trControl = trainControl("cv", number = 10),
+preProcess=c("knnImpute","nzv"), 
+tuneGrid = expand.grid(alpha = 1, lambda = 10^seq(3, -3, length = 100)))
+
+```
+
+
+```{r}
+lasso 
+
+```
+
+
+```{r}
+predic_lasso <- predict(lasso,grad_test) 
+predic_lasso
+```
+
+
+```{r}
+RMSE(predic_lasso, grad_test$Chance.of.Admit) 
+
+```
+
+
+```{r}
+coef(lasso$finalModel, lasso$bestTune$lambda) 
+
+```
+Here we can see that only one variable has been shrunked to zero i.e SOP
+
+```{r}
+set.seed(1)
+ridge <- train(
+Chance.of.Admit ~., data = grad_train, method = "glmnet",
+trControl = trainControl("cv", number = 5),
+na.action = na.pass, 
+preProcess=c("knnImpute","nzv"),
+tuneGrid = expand.grid(alpha = 0, lambda = 10^seq(-3, 3, length = 
+100)))
+
+```
+
+```{r}
+ridge 
+```
+
+
+```{r}
+predict_ridge <- predict(ridge,grad_test) 
+predict_ridge
+```
+
+
+
+```{r}
+RMSE(predict_ridge,grad_test$Chance.of.Admit) 
+
+```
+
+
+```{r}
+set.seed(1)
+enet <- train(
+Chance.of.Admit~., data = grad_train, method = "glmnet", 
+trControl = trainControl("cv", number = 10),
+preProcess=c("knnImpute","nzv"),
+tuneGrid = expand.grid(alpha =seq(0,1, length=10), lambda = 10^seq(-
+3, 3, length = 100)))
+
+```
+
+```{r}
+enet 
+```
+
+
+```{r}
+pred_elast<-predict(enet,grad_test)
+pred_elast 
+
+```
+
+
+```{r}
+RMSE(pred_elast,grad_test$Chance.of.Admit) 
+
+```
+
+
+
+```{r}
+set.seed(1)
+grad_rf <- train(Chance.of.Admit ~ ., data = grad_train, method = "rf", trControl = trainControl(method = "cv",number = 10),preProcess=c("knnImpute","nzv"), tuneGrid = expand.grid(mtry=c(2,4,8)))
+
+```
+
+
+```{r}
+grad_rf 
+
+```
+
+```{r}
+pred_forest<-predict(grad_rf,grad_test)
+pred_forest 
+```
+
+```{r}
+RMSE(pred_forest, grad_test$Chance.of.Admit) 
+```
+
+```{r}
+varImp(grad_rf)
+```
+We can se that there are 6 variables which are most important out of these CGPA is the most important
+
+
+```{r}
+set.seed(1)
+
+gbm <- train(
+Chance.of.Admit ~., data = grad_train, method = "gbm",na.action = na.pass,
+trControl = trainControl("cv", number = 10))
+```
+```{r}
+predictions_gradiant=predict(gbm, grad_test)
+predictions_gradiant
+```
+
+```{r}
+RMSE(predictions_gradiant,grad_test$Chance.of.Admit)
+```
+
+
+```{r}
+set.seed(1)
+
+svmln <- train( 
+Chance.of.Admit ~., data = grad_train, method = "svmLinear",
+preProcess=c("knnImpute","nzv"),
+trControl = trainControl("cv", number = 10))
+
+
+```
+
+
+```{r}
+svmln
+ 
+```
+
+
+```{r}
+predict_svm1=predict(svmln, grad_test ) 
+predict_svm1
+
+```
+
+
+```{r}
+RMSE(predict_svm1,grad_test$Chance.of.Admit) 
+
+```
+
+
+```{r}
+set.seed(1)
+
+svmr <- train(
+Chance.of.Admit ~., data = grad_train, method = "svmRadial",
+preProcess=c("knnImpute","nzv"),
+trControl = trainControl("cv", number = 10))
+ 
+
+```
+
+```{r}
+svmr
+```
+
+
+```{r}
+predict_svmrad<-predict(svmr,grad_test)
+predict_svmrad 
+
+```
+
+
+```{r}
+RMSE(predict_svmrad,grad_test$Chance.of.Admit)
+ 
+```
+
+```{r}
+compare=resamples(list(Ran=grad_rf,G=gbm,SL=svmln,SR=svmr))
+summary(compare)
+```
+
+
+```{r}
+set.seed(1)
+
+inTrain = createDataPartition(grad_train$Chance.of.Admit, p=0.9, list=FALSE)
+grad_90_train = grad_train[inTrain,]
+grad_val = grad_train[-inTrain,] 
+
+```
+
+
+```{r}
+str(grad_90_train) 
+```
+
+
+
+```{r}
+set.seed(1)
+
+grad_train1x<-grad_90_train[,-8] 
+grad_train1y<-grad_90_train[,8]
+grad_test1x<-grad_test[,-8]
+grad_test1y<-grad_test[,8]
+grad_valx<-grad_val[,-8]
+grad_valy<-grad_val[,8]
+
+```
+```{r}
+set.seed(1)
+preproc <- preProcess(grad_train1x, method="knnImpute") 
+
+train.imputed <- predict(preproc, grad_train1x)
+test.imputed <- predict(preproc, grad_test1x)  
+val_imputed <- predict(preproc, grad_valx)
+```
+
+
+```{r}
+new_train<-train.imputed
+new_test<-test.imputed 
+new_val<-val_imputed
+new_train
+new_test
+new_val
+```
+
+
+```{r}
+set.seed(1)
+library(mltools)
+library(data.table) 
+new_train_trim<-one_hot(data.table(new_train), cols = "auto", sparsifyNAs = FALSE, naCols = FALSE,dropCols = TRUE, dropUnusedLevels = FALSE)
+
+new_test_trim<-one_hot(data.table(new_test), cols = "auto", sparsifyNAs = FALSE, naCols = FALSE,dropCols = TRUE, dropUnusedLevels = FALSE)
+
+new_val_trim<-one_hot(data.table(new_val), cols = "auto", sparsifyNAs = FALSE, naCols = FALSE,dropCols = TRUE, dropUnusedLevels = FALSE)
+```
+
+```{r}
+new_train_trim<-as.data.frame(new_train_trim)
+new_test_trim<-as.data.frame(new_test_trim)
+new_val_trim<-as.data.frame(new_val_trim) 
+new_train_trim
+new_test_trim
+new_val_trim
+```
+
+
+
+```{r}
+library(keras)
+library(tensorflow)
+library(caret) 
+set.seed(1)
+
+model <- keras_model_sequential() 
+
+model %>%
+  layer_dense(units=128, activation="relu", input_shape=dim(new_train_trim)[2])%>%
+  layer_dropout(0.2)%>%
+  layer_dense(units=128, activation="relu")%>%
+  layer_dropout(0.2) %>%
+  layer_dense(units=1)
+
+model
+
+```
+```{r}
+set.seed(1)
+model %>% compile(
+optimizer = "sgd", 
+loss = 'mse', 
+metrics = list("mae"))
+
+model
+```
+
+
+
+```{r}
+set.seed(111)
+model %>% fit(
+as.matrix(new_train_trim), grad_train1y, epochs = 30,  
+batch_size=100, validation_data=list(as.matrix(new_val_trim),
+grad_valy )) 
+
+model
+
+```
+
+
+```{r}
+set.seed(1)
+model %>% evaluate(as.matrix(new_train_trim), grad_train1y) 
+
+```
+
+
+```{r}
+set.seed(1)
+library(tfruns)
+runs <- tuning_run("~/ProjectScript.R", 
+                   flags = list( 
+                     nodes = c(16, 32, 64),
+                     nodes2 = c(50, 32, 10),
+                     learning_rate = c(0.01,  0.001),
+                     batch_size = c(30, 50),
+                     epochs = c(30, 50),
+                     activation = c("relu", "sigmoid", "tanh"),
+                     activation2 = c("relu", "sigmoid", "tanh"),
+                     dropout = c(0.2, 0.6),
+                     dropout2 = c(0.2, 0.6)
+                   ), sample = 0.02
+                   )
+
+```
+
+```{r}
+runs 
+
+```
+
+
+```{r}
+
+view_run(runs[which.min(runs$metric_val_loss),]) 
+
+```
+
+
+```{r}
+set.seed(1)
+train1<-rbind(new_train_trim,new_val_trim) 
+trainy<-c(grad_train1y,grad_valy)
+
+```
+
+
+```{r}
+set.seed(1)
+model = keras_model_sequential()
+ 
+
+model %>%
+  layer_dense(units=32, activation="relu", input_shape=dim(train1)[2])%>%
+  layer_dropout(0.2)%>%
+  layer_dense(units=50, activation="tanh")%>%
+  layer_dropout(0.6) %>%
+  layer_dense(units=1)
+
+model
+
+```
+
+
+```{r}
+set.seed(1)
+model %>% compile(optimizer_sgd(lr=0.01), loss = 'mse', metrics = list("mae")) 
+
+```
+
+```{r}
+model 
+```
+
+
+```{r}
+set.seed(111)
+model %>%fit(as.matrix(train1),trainy,epochs=50,batch_size=30) 
+
+```
+
+
+```{r}
+pred_neural<-as.numeric(model %>% predict(as.matrix(new_test_trim))) 
+pred_neural
+```
+
+
+```{r}
+RMSE(pred_neural,grad_test1y) 
+
+```
+
+By looking at all the RMSE values of the models we can conclude that Random Forest has the least RMSE with ~0.624 so it performs the best on the dataset.
+
+
+
+
