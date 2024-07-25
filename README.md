@@ -4,12 +4,12 @@
 
 - [Project Overview](#project-overview)
 - [Data Sources](#data-sources)
-- [Tools](tools)
-- [Data Cleaning/Preparation](data-cleaning)
-- [Exploratory Data Analysis](exploratory-data-analysis)
-- [Modeling](modeling)
-- [Results](results)
-- [Conclusion](conclusion)
+- [Tools](#tools)
+- [Data Cleaning/Preparation](#data-cleaning-preparation)
+- [Exploratory Data Analysis](#exploratory-data-analysis)
+- [Modeling](#modeling)
+- [Results](#results)
+- [Conclusion](#conclusion)
 - [Recommendations](#recommendations)
 
 ### Project Overview
