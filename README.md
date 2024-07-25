@@ -5,7 +5,7 @@
 - [Project Overview](#project-overview)
 - [Data Sources](#data-sources)
 - [Tools](#tools)
-- [Data Cleaning/Preparation](#data-cleaning-preparation)
+- [Data Cleaning](#data-cleaning)
 - [Exploratory Data Analysis](#exploratory-data-analysis)
 - [Modeling](#modeling)
 - [Results](#results)
@@ -27,7 +27,7 @@ The dataset used in this project can be found on Kaggle: https://www.kaggle.com/
 - Caret - The R package used for tuning and evaluating machine learning models.
 - Keras and TensorFlow - Libraries used for building and training the neural network model.
 
-### Data Cleaning/Preparation  
+### Data Cleaning  
 
 In this phase we performed the following tasks:
 1. Missing Values: The dataset was initially checked for missing values, and no missing data was found.
